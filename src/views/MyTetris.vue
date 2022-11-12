@@ -76,7 +76,12 @@
 </template>
 
 <script setup lang="ts">
-import { ColorBase, MoveType, GraphicType } from "@/types/tetris.enum";
+import {
+  ColorBase,
+  MoveType,
+  GraphicType,
+  GameState,
+} from "@/types/tetris.enum";
 import type { TetrisBlockOp } from "@/types/tetris.interface";
 import type { PointPosition } from "@/types/tetris.type";
 import { getGraphics } from "@/utils/tetris";
@@ -111,7 +116,7 @@ let gameLevel = ref(6);
 /** 游戏得分 */
 let gameScore = ref(0);
 /** 游戏状态 */
-let gameState: Ref<"play" | "pause" | "reset"> = ref("reset");
+let gameState: Ref<GameState> = ref(GameState.Reset);
 
 /** 游戏速度 */
 let gameSpeed: ComputedRef<number> = computed(
@@ -176,7 +181,7 @@ let nextRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
 let allTypes = Object.values(GraphicType);
 
 const playGame = () => {
-  gameState.value = "play";
+  gameState.value = GameState.Play;
   getActGraphic();
   getNextGraphic();
   startGame();
@@ -184,7 +189,7 @@ const playGame = () => {
 
 const resetGame = () => {
   clearInterval(gameTimer);
-  gameState.value = "reset";
+  gameState.value = GameState.Reset;
   gameLevel.value = 1;
   gameScore.value = 0;
   actGraphic.length = 0;
@@ -192,7 +197,7 @@ const resetGame = () => {
 };
 
 watch(gameLevel, () => {
-  if (gameState.value === "play") {
+  if (gameState.value === GameState.Play) {
     startGame();
   }
 });
@@ -216,12 +221,12 @@ const startGame = () => {
 };
 
 const pauseGame = () => {
-  if (gameState.value === "pause") {
-    gameState.value = "play";
+  if (gameState.value === GameState.Pause) {
+    gameState.value = GameState.Play;
     startGame();
   } else {
     clearInterval(gameTimer);
-    gameState.value = "pause";
+    gameState.value = GameState.Pause;
   }
 };
 /**

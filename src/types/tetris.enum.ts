@@ -21,6 +21,12 @@ export enum GraphicType {
   "Smashboy" = "SMASHBOY",
 }
 
+export enum GameState {
+  "Play" = "play",
+  "Pause" = "pause",
+  "Reset" = "reset",
+}
+
 export enum MoveType {
   "left" = "left",
   "right" = "right",
