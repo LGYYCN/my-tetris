@@ -22,7 +22,7 @@ export enum GraphicType {
 }
 
 export enum MoveType {
-  "left",
-  "right",
-  "bottom",
+  "left" = "left",
+  "right" = "right",
+  "bottom" = "bottom",
 }

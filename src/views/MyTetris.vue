@@ -6,6 +6,13 @@
       </section>
       <aside>
         <TetrisWindow :render-data="nextRenderData" />
+        <p class="mt-4">
+          Level:
+          <button class="w-5 h-5 border" @click="gameLevel--">-</button>
+          {{ gameLevel }}
+          <button class="w-5 h-5 border" @click="gameLevel++">+</button>
+        </p>
+        <p class="mt-4">Score: {{ gameScore }}</p>
       </aside>
     </main>
     <footer class="flex mt-4 p-1 space-x-4">
@@ -43,16 +50,25 @@
       </section>
       <aside class="flex flex-col justify-around">
         <button
+          v-if="gameState === 'reset'"
           class="w-28 h-10 bg-blue-200 hover:bg-blue-400 rounded-full shadow-md"
-          @click="startGame"
+          @click="playGame"
         >
-          开始
+          Play
         </button>
         <button
+          v-else
+          class="w-28 h-10 bg-blue-200 hover:bg-blue-400 rounded-full shadow-md"
+          @click="resetGame"
+        >
+          Reset
+        </button>
+        <button
+          v-show="gameState !== 'reset'"
           class="w-28 h-10 bg-red-200 hover:bg-red-400 rounded-full shadow-md"
           @click="pauseGame"
         >
-          暂停
+          {{ gameState === "play" ? "暂停" : "继续" }}
         </button>
       </aside>
     </footer>
@@ -64,7 +80,14 @@ import { ColorBase, MoveType, GraphicType } from "@/types/tetris.enum";
 import type { TetrisBlockOp } from "@/types/tetris.interface";
 import type { PointPosition } from "@/types/tetris.type";
 import { getGraphics } from "@/utils/tetris";
-import { computed, reactive, ref, type ComputedRef } from "vue";
+import {
+  computed,
+  reactive,
+  ref,
+  watch,
+  type ComputedRef,
+  type Ref,
+} from "vue";
 import TetrisWindow from "../components/TetrisWindow.vue";
 
 /** 当前图形类型 */
@@ -81,6 +104,19 @@ let lockedData: TetrisBlockOp[] = reactive([]);
 let mainRowCount = ref(20);
 /** 主界面宽度 */
 let mainColCount = ref(10);
+/** 游戏计时器 */
+let gameTimer = 0;
+/** 游戏难度 */
+let gameLevel = ref(6);
+/** 游戏得分 */
+let gameScore = ref(0);
+/** 游戏状态 */
+let gameState: Ref<"play" | "pause" | "reset"> = ref("reset");
+
+/** 游戏速度 */
+let gameSpeed: ComputedRef<number> = computed(
+  () => (11 - gameLevel.value) * 100
+);
 
 /** 主界面渲染数据 */
 let mainRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
@@ -139,19 +175,60 @@ let nextRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
 /** 所有的图形类型 */
 let allTypes = Object.values(GraphicType);
 
-const startGame = () => {
+const playGame = () => {
+  gameState.value = "play";
   getActGraphic();
   getNextGraphic();
+  startGame();
+};
+
+const resetGame = () => {
+  clearInterval(gameTimer);
+  gameState.value = "reset";
+  gameLevel.value = 1;
+  gameScore.value = 0;
+  actGraphic.length = 0;
+  lockedData.length = 0;
+};
+
+watch(gameLevel, () => {
+  if (gameState.value === "play") {
+    startGame();
+  }
+});
+
+const startGame = () => {
+  if (gameTimer) {
+    clearInterval(gameTimer);
+  }
+  gameTimer = setInterval(() => {
+    let canMove = checkIt(getNewGraphic(actGraphic, MoveType.bottom));
+    if (canMove) {
+      moveIt(actGraphic, MoveType.bottom);
+    } else {
+      clearInterval(gameTimer);
+      lockedData.push(...actGraphic);
+      getActGraphic();
+      getNextGraphic();
+      startGame();
+    }
+  }, gameSpeed.value);
 };
 
 const pauseGame = () => {
-  lockedData.push(...actGraphic);
+  if (gameState.value === "pause") {
+    gameState.value = "play";
+    startGame();
+  } else {
+    clearInterval(gameTimer);
+    gameState.value = "pause";
+  }
 };
 /**
  * 获取当前的图形
  */
 const getActGraphic = () => {
-  let origin: PointPosition = [15, actGraphicType === GraphicType.Hero ? 3 : 4];
+  let origin: PointPosition = [0, actGraphicType === GraphicType.Hero ? 3 : 4];
   let actType = allTypes[Math.floor(Math.random() * allTypes.length)];
   if (nextGraphicType) {
     actType = nextGraphicType;
@@ -180,30 +257,15 @@ const onChange = () => {
 };
 
 /**
- * 检查图形位置是否正确
- * @param graphic: 待检查的图形
- */
-const checkGraphic = (graphic: TetrisBlockOp[]) => {
-  let canMove = graphic.every(({ row, col }) => {
-    let inWindow =
-      row >= 0 &&
-      row < mainRowCount.value &&
-      col >= 0 &&
-      col < mainColCount.value;
-    let isOverlap = lockedData.some(
-      (item) => item.row === row && item.col === col
-    );
-    return inWindow && !isOverlap;
-  });
-  return canMove;
-};
-
-/**
- * 移动图形
+ * 根据图形及其移动方向获取新图形
+ * @param graphic: 旧图形
  * @param moveType: 移动方向
  */
-const moveIt = (moveType: MoveType) => {
-  let newGraphic = actGraphic.map((item) => {
+const getNewGraphic = (
+  graphic: TetrisBlockOp[],
+  moveType: MoveType
+): TetrisBlockOp[] => {
+  let newGraphic = graphic.map((item) => {
     let res = JSON.parse(JSON.stringify(item));
     if (moveType === MoveType.left) {
       res.col--;
@@ -214,7 +276,16 @@ const moveIt = (moveType: MoveType) => {
     }
     return res;
   });
-  let canMove = checkGraphic(newGraphic);
+  return newGraphic;
+};
+
+/**
+ * 移动图形
+ * @param moveType: 移动方向
+ */
+const moveIt = (graphic: TetrisBlockOp[], moveType: MoveType) => {
+  let newGraphic = getNewGraphic(graphic, moveType);
+  let canMove = checkIt(newGraphic);
   if (canMove) {
     actGraphic.length = 0;
     actGraphic.push(...newGraphic);
@@ -222,23 +293,42 @@ const moveIt = (moveType: MoveType) => {
 };
 
 /**
+ * 检查图形位置是否正确
+ * @param graphic: 待检查的图形
+ */
+const checkIt = (graphic: TetrisBlockOp[]): boolean => {
+  let isValid = graphic.every(({ row, col }) => {
+    let inWindow =
+      row >= 0 &&
+      row < mainRowCount.value &&
+      col >= 0 &&
+      col < mainColCount.value;
+    let isOverlap = lockedData.some(
+      (item) => item.row === row && item.col === col
+    );
+    return inWindow && !isOverlap;
+  });
+  return isValid;
+};
+
+/**
  * 向左移动
  */
 const toLeft = () => {
-  moveIt(MoveType.left);
+  moveIt(actGraphic, MoveType.left);
 };
 
 /**
  * 向右移动
  */
 const toRight = () => {
-  moveIt(MoveType.right);
+  moveIt(actGraphic, MoveType.right);
 };
 
 /**
  * 向下移动
  */
 const toBottom = () => {
-  moveIt(MoveType.bottom);
+  moveIt(actGraphic, MoveType.bottom);
 };
 </script>
