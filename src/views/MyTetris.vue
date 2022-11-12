@@ -81,10 +81,11 @@ import {
   MoveType,
   GraphicType,
   GameState,
+  RotationType,
 } from "@/types/tetris.enum";
 import type { TetrisBlockOp } from "@/types/tetris.interface";
 import type { PointPosition } from "@/types/tetris.type";
-import { getGraphics } from "@/utils/tetris";
+import { getGraphics, getGraphicsPointMap } from "@/utils/tetris";
 import {
   computed,
   reactive,
@@ -97,6 +98,8 @@ import TetrisWindow from "../components/TetrisWindow.vue";
 
 /** 当前图形类型 */
 let actGraphicType: GraphicType;
+/** 当前图形的方向 */
+let actGraphicRotation: RotationType;
 /** 下一个图形类型 */
 let nextGraphicType: GraphicType;
 /** 当前图形 */
@@ -207,9 +210,9 @@ const startGame = () => {
     clearInterval(gameTimer);
   }
   gameTimer = setInterval(() => {
-    let canMove = checkIt(getNewGraphic(actGraphic, MoveType.bottom));
+    let canMove = checkIt(getNewGraphic(actGraphic, MoveType.Bottom));
     if (canMove) {
-      moveIt(actGraphic, MoveType.bottom);
+      moveIt(actGraphic, MoveType.Bottom);
     } else {
       clearInterval(gameTimer);
       lockedData.push(...actGraphic);
@@ -239,6 +242,7 @@ const getActGraphic = () => {
     actType = nextGraphicType;
   }
   actGraphicType = actType;
+  actGraphicRotation = RotationType.ToTop;
   let pointList = getGraphics(actType, origin);
   actGraphic.length = 0;
   actGraphic.push(...pointList);
@@ -255,10 +259,27 @@ const getNextGraphic = () => {
 };
 
 const onChange = () => {
-  let canChange = actGraphic.every(({ col }) => col > 0);
-  if (canChange) {
-    console.log(mainRenderData, actGraphic);
+  let rotationType = actGraphicRotation;
+  if (actGraphicRotation === Object.keys(RotationType).length - 1) {
+    rotationType = -1;
   }
+
+  let newGraphic = getRotationGraphic(actGraphic, ++rotationType);
+  if (checkIt(newGraphic)) {
+    actGraphicRotation = rotationType;
+    actGraphic.length = 0;
+    actGraphic.push(...newGraphic);
+  }
+};
+
+const getRotationGraphic = (
+  graphic: TetrisBlockOp[],
+  rotationType: RotationType
+): TetrisBlockOp[] => {
+  let minRow = Math.min(...graphic.map(({ row }) => row));
+  let minCol = Math.min(...graphic.map(({ col }) => col));
+  let g = getGraphics(actGraphicType, [minRow, minCol], rotationType);
+  return g;
 };
 
 /**
@@ -270,14 +291,22 @@ const getNewGraphic = (
   graphic: TetrisBlockOp[],
   moveType: MoveType
 ): TetrisBlockOp[] => {
-  let newGraphic = graphic.map((item) => {
+  let newGraphic: TetrisBlockOp[] = [];
+  newGraphic = graphic.map((item) => {
     let res = JSON.parse(JSON.stringify(item));
-    if (moveType === MoveType.left) {
-      res.col--;
-    } else if (moveType === MoveType.right) {
-      res.col++;
-    } else if (moveType === MoveType.bottom) {
-      res.row++;
+    switch (moveType) {
+      case MoveType.Left:
+        res.col--;
+        break;
+      case MoveType.Right:
+        res.col++;
+        break;
+      case MoveType.Bottom:
+        res.row++;
+        break;
+
+      default:
+        break;
     }
     return res;
   });
@@ -320,20 +349,20 @@ const checkIt = (graphic: TetrisBlockOp[]): boolean => {
  * 向左移动
  */
 const toLeft = () => {
-  moveIt(actGraphic, MoveType.left);
+  moveIt(actGraphic, MoveType.Left);
 };
 
 /**
  * 向右移动
  */
 const toRight = () => {
-  moveIt(actGraphic, MoveType.right);
+  moveIt(actGraphic, MoveType.Right);
 };
 
 /**
  * 向下移动
  */
 const toBottom = () => {
-  moveIt(actGraphic, MoveType.bottom);
+  moveIt(actGraphic, MoveType.Bottom);
 };
 </script>

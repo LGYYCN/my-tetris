@@ -28,7 +28,14 @@ export enum GameState {
 }
 
 export enum MoveType {
-  "left" = "left",
-  "right" = "right",
-  "bottom" = "bottom",
+  "Left" = "left",
+  "Right" = "right",
+  "Bottom" = "bottom",
+}
+
+export enum RotationType {
+  "ToTop",
+  "ToRight",
+  "ToBottom",
+  "ToLeft",
 }
