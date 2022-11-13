@@ -42,7 +42,8 @@
         <div class="w-full text-center">
           <button
             class="bg-orange-200 hover:bg-orange-400 rounded-md shadow-md w-28 h-10"
-            @click="toBottom"
+            @click="toBottom(false)"
+            @dblclick="toBottom(true)"
           >
             ↓
           </button>
@@ -85,9 +86,10 @@ import {
 } from "@/types/tetris.enum";
 import type { TetrisBlockOp } from "@/types/tetris.interface";
 import type { PointPosition } from "@/types/tetris.type";
-import { getGraphics, getGraphicsPointMap } from "@/utils/tetris";
+import { getGraphics } from "@/utils/tetris";
 import {
   computed,
+  onMounted,
   reactive,
   ref,
   watch,
@@ -107,7 +109,7 @@ let actGraphic: TetrisBlockOp[] = reactive([]);
 /** 下一个图形 */
 let nextGraphic: TetrisBlockOp[] = reactive([]);
 /** 已经锁定的区域 */
-let lockedData: TetrisBlockOp[] = reactive([]);
+let lockedData: TetrisBlockOp[][] = reactive([]);
 /** 主界面高度 */
 let mainRowCount = ref(20);
 /** 主界面宽度 */
@@ -116,6 +118,8 @@ let mainColCount = ref(10);
 let gameTimer = 0;
 /** 游戏难度 */
 let gameLevel = ref(6);
+/** 消除的行数 */
+let deleteRows = ref(0);
 /** 游戏得分 */
 let gameScore = ref(0);
 /** 游戏状态 */
@@ -137,24 +141,22 @@ let mainRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
       let cell: TetrisBlockOp = {
         row: i,
         col: j,
-        lock: false,
+        lock: lockedData[i]?.[j].lock,
+        color: lockedData[i]?.[j].lock ? ColorBase.Locked : ColorBase.Fill,
       };
-      let isRendered = lockedData.some(
-        ({ row, col }) => row === i && col === j
-      );
       let isAct = actGraphic.some(({ row, col }) => row === i && col === j);
-      if (isRendered) {
-        cell.color = ColorBase.Locked;
-        cell.lock = true;
-      } else if (isAct) {
+      if (isAct) {
         cell.color = ColorBase.Brand;
       }
       row.push(cell);
     }
     res.push(row);
   }
+
   return res;
 });
+
+watch(actGraphic, () => {});
 
 /** 次界面渲染数据 */
 let nextRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
@@ -183,11 +185,39 @@ let nextRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
 /** 所有的图形类型 */
 let allTypes = Object.values(GraphicType);
 
+const initMainData = () => {
+  let rowCount = mainRowCount.value;
+  let colCount = mainColCount.value;
+  let res: TetrisBlockOp[][] = [];
+  for (let i = 0; i < rowCount; i++) {
+    let row: TetrisBlockOp[] = [];
+    for (let j = 0; j < colCount; j++) {
+      let cell: TetrisBlockOp = {
+        row: i,
+        col: j,
+        lock: false,
+      };
+      row.push(cell);
+    }
+    res.push(row);
+  }
+  return res;
+};
+
+onMounted(() => {
+  lockedData.length = 0;
+  lockedData.push(...initMainData());
+});
+
 const playGame = () => {
   gameState.value = GameState.Play;
   getActGraphic();
-  getNextGraphic();
-  startGame();
+  if (checkIt(getNewGraphic(actGraphic, MoveType.Bottom))) {
+    getNextGraphic();
+    startGame();
+  } else {
+    alert("End");
+  }
 };
 
 const resetGame = () => {
@@ -197,6 +227,7 @@ const resetGame = () => {
   gameScore.value = 0;
   actGraphic.length = 0;
   lockedData.length = 0;
+  lockedData.push(...initMainData());
 };
 
 watch(gameLevel, () => {
@@ -215,10 +246,13 @@ const startGame = () => {
       moveIt(actGraphic, MoveType.Bottom);
     } else {
       clearInterval(gameTimer);
-      lockedData.push(...actGraphic);
-      getActGraphic();
-      getNextGraphic();
-      startGame();
+      actGraphic.forEach((item) => {
+        item.lock = true;
+        lockedData[item.row][item.col] = item;
+      });
+      setTimeout(() => {
+        playGame();
+      }, 500);
     }
   }, gameSpeed.value);
 };
@@ -337,9 +371,9 @@ const checkIt = (graphic: TetrisBlockOp[]): boolean => {
       row < mainRowCount.value &&
       col >= 0 &&
       col < mainColCount.value;
-    let isOverlap = lockedData.some(
-      (item) => item.row === row && item.col === col
-    );
+    let isOverlap = lockedData.some((item, i) => {
+      return item.some((c, j) => i === row && j === col && c.lock);
+    });
     return inWindow && !isOverlap;
   });
   return isValid;
@@ -362,7 +396,19 @@ const toRight = () => {
 /**
  * 向下移动
  */
-const toBottom = () => {
-  moveIt(actGraphic, MoveType.Bottom);
+const toBottom = (isDroop = false) => {
+  if (isDroop) {
+    let canMove = true;
+    while (canMove) {
+      let newGraphic = getNewGraphic(actGraphic, MoveType.Bottom);
+      canMove = checkIt(newGraphic);
+      if (canMove) {
+        actGraphic.length = 0;
+        actGraphic.push(...newGraphic);
+      }
+    }
+  } else {
+    moveIt(actGraphic, MoveType.Bottom);
+  }
 };
 </script>
