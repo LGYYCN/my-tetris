@@ -44,7 +44,6 @@
           <button
             class="bg-orange-200 hover:bg-orange-400 rounded-md shadow-md w-28 h-10"
             @click="toBottom(false)"
-            @dblclick="toBottom(true)"
           >
             ↓
           </button>
@@ -262,11 +261,7 @@ const resetGame = () => {
 };
 
 watch(deleteRows, (n, o) => {
-  if (gameLevel.value < 10) {
-    if (n % 10 === 0) {
-      gameLevel.value++;
-    }
-  }
+  gameLevel.value = Math.min(Math.ceil(n / 10), 10);
 });
 
 const getScore = () => {
@@ -358,7 +353,7 @@ const getActGraphic = () => {
  */
 const getNextGraphic = () => {
   nextGraphicType = allTypes[Math.floor(Math.random() * allTypes.length)];
-  let pointList = getGraphics(nextGraphicType, [0, 0]);
+  let pointList = getGraphics(nextGraphicType, [1, 0]);
   nextGraphic.length = 0;
   nextGraphic.push(...pointList);
 };
