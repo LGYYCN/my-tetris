@@ -91,6 +91,7 @@ import { getGraphics } from "@/utils/tetris";
 import {
   computed,
   onMounted,
+  onUnmounted,
   reactive,
   ref,
   watch,
@@ -100,11 +101,11 @@ import {
 import TetrisWindow from "../components/TetrisWindow.vue";
 
 /** 当前图形类型 */
-let actGraphicType: GraphicType;
+let actGraphicType: GraphicType | null;
 /** 当前图形的方向 */
 let actGraphicRotation: RotationType;
 /** 下一个图形类型 */
-let nextGraphicType: GraphicType;
+let nextGraphicType: GraphicType | null;
 /** 当前图形 */
 let actGraphic: TetrisBlockOp[] = reactive([]);
 /** 下一个图形 */
@@ -193,7 +194,45 @@ const initMainData = () => {
 onMounted(() => {
   lockedData.length = 0;
   lockedData.push(...initMainData());
+  document.addEventListener("keydown", onKeyDown);
 });
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", onKeyDown);
+});
+
+const onKeyDown = (event: KeyboardEvent) => {
+  switch (event.code) {
+    case "ArrowUp":
+      onChange();
+      break;
+    case "ArrowDown":
+      toBottom();
+      break;
+    case "ArrowLeft":
+      toLeft();
+      break;
+    case "ArrowRight":
+      toRight();
+      break;
+
+    case "Enter":
+    case "NumberEnter":
+      if (gameState.value !== GameState.Reset) {
+        resetGame();
+      } else {
+        playGame();
+      }
+      break;
+
+    case "Space":
+      pauseGame();
+      break;
+
+    default:
+      break;
+  }
+};
 
 const playGame = () => {
   gameState.value = GameState.Play;
@@ -212,6 +251,9 @@ const resetGame = () => {
   gameLevel.value = 1;
   gameScore.value = 0;
   actGraphic.length = 0;
+  nextGraphic.length = 0;
+  actGraphicType = null;
+  nextGraphicType = null;
   lockedData.length = 0;
   lockedData.push(...initMainData());
 };
@@ -278,7 +320,7 @@ const pauseGame = () => {
   if (gameState.value === GameState.Pause) {
     gameState.value = GameState.Play;
     startGame();
-  } else {
+  } else if (gameState.value === GameState.Play) {
     clearInterval(gameTimer);
     gameState.value = GameState.Pause;
   }
@@ -331,7 +373,11 @@ const getRotationGraphic = (
 ): TetrisBlockOp[] => {
   let minRow = Math.min(...graphic.map(({ row }) => row));
   let minCol = Math.min(...graphic.map(({ col }) => col));
-  let g = getGraphics(actGraphicType, [minRow, minCol], rotationType);
+  let g = getGraphics(
+    actGraphicType as GraphicType,
+    [minRow, minCol],
+    rotationType
+  );
   return g;
 };
 
