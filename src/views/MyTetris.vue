@@ -136,13 +136,16 @@ let gameSpeed: ComputedRef<number> = computed(
 let mainRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
   let res: TetrisBlockOp[][] = JSON.parse(JSON.stringify(lockedData));
   actGraphic.forEach((item) => {
-    res[item.row][item.col] = { ...item };
+    if (!res[item.row][item.col].lock) {
+      res[item.row][item.col] = {
+        row: 0,
+        col: 0,
+        lock: item.lock,
+        color: item.color,
+      };
+    }
   });
   return res;
-});
-
-watch(lockedData, (newData, oldData) => {
-  console.log("lockedData changed", { newData, oldData });
 });
 
 /** 次界面渲染数据 */
@@ -258,9 +261,11 @@ const resetGame = () => {
   lockedData.push(...initMainData());
 };
 
-watch(gameLevel, () => {
-  if (gameState.value === GameState.Play) {
-    startGame();
+watch(deleteRows, (n, o) => {
+  if (gameLevel.value < 10) {
+    if (n % 10 === 0) {
+      gameLevel.value++;
+    }
   }
 });
 
@@ -274,8 +279,11 @@ const getScore = () => {
     }
   });
   if (actDelRows.length) {
-    gameScore.value += (1 + actDelRows.length) * actDelRows.length * 5;
-    let newLockData = lockedData.filter((row, i) => !actDelRows.includes(i));
+    gameScore.value +=
+      (1 + actDelRows.length) * actDelRows.length * 5 * gameLevel.value;
+    let newLockData = JSON.parse(
+      JSON.stringify(lockedData.filter((row, i) => !actDelRows.includes(i)))
+    );
     let addData: TetrisBlockOp[][] = [];
     addData.length = mainRowCount.value - newLockData.length;
     addData.fill([]);
@@ -304,10 +312,14 @@ const startGame = () => {
     } else {
       clearInterval(gameTimer);
       actGraphic.forEach((item) => {
-        item.lock = true;
-        item.color = ColorBase.Locked;
-        lockedData[item.row][item.col] = item;
+        lockedData[item.row][item.col] = {
+          row: 0,
+          col: 0,
+          lock: true,
+          color: ColorBase.Locked,
+        };
       });
+      actGraphic.length = 0;
       getScore();
       setTimeout(() => {
         playGame();
