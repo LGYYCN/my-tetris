@@ -7,12 +7,13 @@
       <aside>
         <TetrisWindow :render-data="nextRenderData" />
         <p class="mt-4">
-          Level:
-          <button class="w-5 h-5 border" @click="gameLevel--">-</button>
+          难度:
+          <!-- <button class="w-5 h-5 border" @click="gameLevel--">-</button> -->
           {{ gameLevel }}
-          <button class="w-5 h-5 border" @click="gameLevel++">+</button>
+          <!-- <button class="w-5 h-5 border" @click="gameLevel++">+</button> -->
         </p>
-        <p class="mt-4">Score: {{ gameScore }}</p>
+        <p class="mt-4">消除的行数: {{ deleteRows }}</p>
+        <p class="mt-4">得分: {{ gameScore }}</p>
       </aside>
     </main>
     <footer class="flex mt-4 p-1 space-x-4">
@@ -117,7 +118,7 @@ let mainColCount = ref(10);
 /** 游戏计时器 */
 let gameTimer = 0;
 /** 游戏难度 */
-let gameLevel = ref(6);
+let gameLevel = ref(1);
 /** 消除的行数 */
 let deleteRows = ref(0);
 /** 游戏得分 */
@@ -132,31 +133,16 @@ let gameSpeed: ComputedRef<number> = computed(
 
 /** 主界面渲染数据 */
 let mainRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
-  let rowCount = mainRowCount.value;
-  let colCount = mainColCount.value;
-  let res: TetrisBlockOp[][] = [];
-  for (let i = 0; i < rowCount; i++) {
-    let row: TetrisBlockOp[] = [];
-    for (let j = 0; j < colCount; j++) {
-      let cell: TetrisBlockOp = {
-        row: i,
-        col: j,
-        lock: lockedData[i]?.[j].lock,
-        color: lockedData[i]?.[j].lock ? ColorBase.Locked : ColorBase.Fill,
-      };
-      let isAct = actGraphic.some(({ row, col }) => row === i && col === j);
-      if (isAct) {
-        cell.color = ColorBase.Brand;
-      }
-      row.push(cell);
-    }
-    res.push(row);
-  }
-
+  let res: TetrisBlockOp[][] = JSON.parse(JSON.stringify(lockedData));
+  actGraphic.forEach((item) => {
+    res[item.row][item.col] = { ...item };
+  });
   return res;
 });
 
-watch(actGraphic, () => {});
+watch(lockedData, (newData, oldData) => {
+  console.log("lockedData changed", { newData, oldData });
+});
 
 /** 次界面渲染数据 */
 let nextRenderData: ComputedRef<TetrisBlockOp[][]> = computed(() => {
@@ -236,6 +222,35 @@ watch(gameLevel, () => {
   }
 });
 
+const getScore = () => {
+  let actDelRows: number[] = [];
+  lockedData.forEach((row, i) => {
+    let beDel = row.every((col) => col.lock);
+    if (beDel) {
+      actDelRows.push(i);
+      row.forEach((col) => (col.beDel = true));
+    }
+  });
+  if (actDelRows.length) {
+    gameScore.value += (1 + actDelRows.length) * actDelRows.length * 5;
+    let newLockData = lockedData.filter((row, i) => !actDelRows.includes(i));
+    let addData: TetrisBlockOp[][] = [];
+    addData.length = mainRowCount.value - newLockData.length;
+    addData.fill([]);
+    addData.forEach((row) => {
+      row.length = mainColCount.value;
+      row.fill({
+        row: 0,
+        col: 0,
+      });
+    });
+    newLockData.unshift(...addData);
+    lockedData.length = 0;
+    lockedData.push(...newLockData);
+  }
+  deleteRows.value += actDelRows.length;
+};
+
 const startGame = () => {
   if (gameTimer) {
     clearInterval(gameTimer);
@@ -248,8 +263,10 @@ const startGame = () => {
       clearInterval(gameTimer);
       actGraphic.forEach((item) => {
         item.lock = true;
+        item.color = ColorBase.Locked;
         lockedData[item.row][item.col] = item;
       });
+      getScore();
       setTimeout(() => {
         playGame();
       }, 500);

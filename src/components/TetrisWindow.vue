@@ -4,6 +4,7 @@
       <div class="tetris_col" v-for="(col, j) in row" :key="j">
         <div
           class="tetris_block w-6 h-6 m-0.5"
+          :class="col.beDel ? 'animate-pulse' : ''"
           :style="{ backgroundColor: col.color || baseColor }"
         ></div>
       </div>

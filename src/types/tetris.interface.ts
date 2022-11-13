@@ -4,5 +4,6 @@ export interface TetrisBlockOp {
   row: number;
   col: number;
   color?: `${ColorBase}`;
-  lock?: Boolean;
+  lock?: boolean;
+  beDel?: boolean;
 }
