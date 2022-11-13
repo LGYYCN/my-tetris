@@ -310,16 +310,18 @@ const getNextGraphic = () => {
 };
 
 const onChange = () => {
-  let rotationType = actGraphicRotation;
-  if (actGraphicRotation === Object.keys(RotationType).length - 1) {
-    rotationType = -1;
-  }
+  if (gameState.value === GameState.Play) {
+    let rotationType = actGraphicRotation;
+    if (actGraphicRotation === Object.keys(RotationType).length - 1) {
+      rotationType = -1;
+    }
 
-  let newGraphic = getRotationGraphic(actGraphic, ++rotationType);
-  if (checkIt(newGraphic)) {
-    actGraphicRotation = rotationType;
-    actGraphic.length = 0;
-    actGraphic.push(...newGraphic);
+    let newGraphic = getRotationGraphic(actGraphic, ++rotationType);
+    if (checkIt(newGraphic)) {
+      actGraphicRotation = rotationType;
+      actGraphic.length = 0;
+      actGraphic.push(...newGraphic);
+    }
   }
 };
 
@@ -400,32 +402,38 @@ const checkIt = (graphic: TetrisBlockOp[]): boolean => {
  * 向左移动
  */
 const toLeft = () => {
-  moveIt(actGraphic, MoveType.Left);
+  if (gameState.value === GameState.Play) {
+    moveIt(actGraphic, MoveType.Left);
+  }
 };
 
 /**
  * 向右移动
  */
 const toRight = () => {
-  moveIt(actGraphic, MoveType.Right);
+  if (gameState.value === GameState.Play) {
+    moveIt(actGraphic, MoveType.Right);
+  }
 };
 
 /**
  * 向下移动
  */
 const toBottom = (isDroop = false) => {
-  if (isDroop) {
-    let canMove = true;
-    while (canMove) {
-      let newGraphic = getNewGraphic(actGraphic, MoveType.Bottom);
-      canMove = checkIt(newGraphic);
-      if (canMove) {
-        actGraphic.length = 0;
-        actGraphic.push(...newGraphic);
+  if (gameState.value === GameState.Play) {
+    if (isDroop) {
+      let canMove = true;
+      while (canMove) {
+        let newGraphic = getNewGraphic(actGraphic, MoveType.Bottom);
+        canMove = checkIt(newGraphic);
+        if (canMove) {
+          actGraphic.length = 0;
+          actGraphic.push(...newGraphic);
+        }
       }
+    } else {
+      moveIt(actGraphic, MoveType.Bottom);
     }
-  } else {
-    moveIt(actGraphic, MoveType.Bottom);
   }
 };
 </script>
